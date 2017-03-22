@@ -1,0 +1,280 @@
+ <!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Title of the document</title>
+	<style>
+		.area { position:relative;
+			background:#f8f8f8;
+			background:-webkit-linear-gradient(#f0f0f0,#f8f8f8);
+			background:-moz-linear-gradient(#f0f0f0,#f8f8f8);
+			background:-ms-linear-gradient(#f0f0f0,#f8f8f8); 
+			width:360px; height:360px; 
+		}
+		.bar { position:absolute; bottom:0; background:black; }
+		.bar2{ position:absolute; bottom:0; background: rgb(0,255,0); height: 2px;} 
+		.initiator {
+			position:absolute;
+			width:360px; height:360px; 
+			-webkit-transition:0.5s ease all;
+			z-index:10000;
+			
+		}
+		.play{width:80px; heigh: 30px;cursor:pointer; margin:5px;}
+
+		.experiment { position:relative; float:left; margin-left:20px; }
+	</style>
+</head>
+
+<body>
+<audio id="audio1" src="Street_Fighter_2_Coconut_Milk_OC_ReMix.mp3"></audio>
+<audio id="audio2" src="Street_Fighter_2_Freestyle_Dojo_OC_ReMix.mp3"></audio>
+
+<div class="experiment" id="r0">
+			<h2>Music Visualizer/User Life Improver</h2>
+
+			<div class="initiator"></div>
+			<div id="bars" class="area"></div>
+</div>
+
+<div class="play" id="play1">play song 1</div>
+<div class="play" id="play2">play song 2</div>
+</body>
+<script>
+	window.AudioContext = window.AudioContext || window.webkitAudioContext || window.mozAudioContext;
+	
+	function renderer1(){
+	
+				var barsArr = [],
+					topBarsArr = [],
+					topBarsStyleArr = [],
+					initialized = false,
+					barsEl;
+	
+				var height = 0;
+
+				function init(config) {
+					var count = config.count;
+					var width = config.width;
+					var barWidth = (width/count) >> 0;
+					height = config.height;
+
+					barsEl = document.getElementById('bars');
+					for(var i = 0; i < count; i++ ){
+						var nunode = document.createElement('div');
+						nunode.classList.add('bar');
+						nunode.style.width = barWidth + 'px';
+						nunode.style.left = (barWidth * i) + 'px';
+						barsArr.push(nunode);
+						barsEl.appendChild(nunode);
+						
+						var topBar = document.createElement('div');
+						topBar.classList.add('bar2');
+						topBar.style.width = barWidth + 'px';
+						topBar.style.left = (barWidth * i) + 'px';
+						topBarsArr.push(topBar);
+						topBarsStyleArr.push(0);
+						barsEl.appendChild(topBar);
+					}
+
+					initialized = true;
+				};
+				var max = 256;
+				var previousFrequencyData = [];
+				var renderFrame = function(frequencyData) {
+					for(var i = 0; i < barsArr.length; i++) {
+						
+						var bar = barsArr[i];
+						bar.style.height = ((frequencyData[i]/max)*height + 'px');
+						var topBar = topBarsArr[i];
+						var topBarDist = topBarsStyleArr[i];
+						topBar.style.bottom = (topBarDist-1)+'px';
+						if((topBarDist-1) <= (frequencyData[i]/max)*height){
+						  topBar.style.bottom = ((frequencyData[i]/max)*height + 'px');
+							topBarsStyleArr[i] = (frequencyData[i]/max)*height;
+						}
+						else{
+							topBarsStyleArr[i] = topBarDist-1;
+						}
+						
+						
+					}
+				};
+			
+				return {
+					init: init,
+					isInitialized: function() {
+						return initialized;
+					},
+					renderFrame: renderFrame
+				}
+			};
+			
+	window.onload = function() {
+			function Visualization(config) {
+				var audio,
+					audioStream,
+					analyser,
+					source,
+					ctx,
+					canvasCtx,
+					frequencyData,
+					running = false,
+					renderer = config.renderer,
+					width = config.width || 360,
+					height = config.height || 330;
+
+				var init = function() {
+					audio1 = document.getElementById('audio1');
+					
+   				audio2 = document.getElementById('audio2');
+					
+					/*Notes for Roland: 
+					The AudioContext interface represents an audio-processing graph
+					built from audio modules linked together, each represented by an
+					AudioNode. An audio context controls both the creation of the nodes
+					it contains and the execution of the audio processing, or decoding.
+					*/
+					ctx = new AudioContext() ;
+					
+					/*
+					AudioContext.createAnalyser()
+					Creates an AnalyserNode, which can be used to expose audio time and
+					frequency data and for example to create data visualisations.
+					*/
+					analyser = ctx.createAnalyser();
+					
+					/*
+					AudioContext.createMediaElementSource()
+					Creates a MediaElementAudioSourceNode associated with an 
+					HTMLMediaElement. This can be used to play and manipulate audio from
+					<video> or <audio> elements.
+					*/
+					source =  ctx.createMediaElementSource(audio1);
+					source2 =  ctx.createMediaElementSource(audio2);
+
+					/*
+					Connects output of AudioNode to input of AnalyserNode
+					*/
+					source.connect(analyser);
+					source2.connect(analyser);
+					
+					/*
+					AudioContext.destination 
+					Returns an AudioDestinationNode representing the final destination of
+					all audio in the context. It can be thought of as the audio-rendering
+					device.
+					*/
+					analyser.connect(ctx.destination);
+					
+					/*
+					AnalyserNode.fftSize
+					Is an unsigned long value representing the size of the FFT (Fast
+					Fourier Transform) to be used to determine the frequency domain
+					
+					http://en.wikipedia.org/wiki/Fast_Fourier_transform
+					*/
+					analyser.fftSize = 64;
+					
+					/*
+					AnalyserNode.frequencyBinCount
+					Is an unsigned long value half that of the FFT size. This generally 
+					equates to the number of data values you will have to play with for the
+					visualization.
+					*/
+					frequencyData = new Uint8Array(analyser.frequencyBinCount);
+					
+					renderer.init({
+						count: analyser.frequencyBinCount,
+						width: width,
+						height: height
+					});
+				};
+				
+				this.start1 = function() {
+					audio1.play();
+					running = true;
+					renderFrame();
+				};
+				this.stop1 = function() {
+					running = false;
+					audio1.pause();
+				};
+				this.start2 = function() {
+					audio2.play();
+					running = true;
+					renderFrame();
+				};
+				this.stop2 = function() {
+					running = false;
+					audio2.pause();
+				};
+				
+				this.setRenderer = function(r) {
+					if (!r.isInitialized()) {
+						r.init({
+							count: analyser.frequencyBinCount,
+							width: width,
+							height: height
+						});
+					} 
+					renderer = r;
+				};
+				this.isPlaying = function() {
+					return running;
+				}
+
+				var renderFrame = function() {
+					analyser.getByteFrequencyData(frequencyData);
+					renderer.renderFrame(frequencyData);
+					if (running) {
+						requestAnimationFrame(renderFrame);
+					}
+				};
+
+				init();
+
+			};
+			var vis = document.querySelectorAll('.initiator');
+			var play = document.querySelectorAll('.play');
+
+			var v = null;
+			var lastElparentId = null;
+			for(var i=0; i<play.length; i++) {
+				play[i].onclick = (function() {
+
+					return function() {
+						var el = vis;
+						var id = this.id;
+							if (!v) {
+								
+								v = new Visualization({renderer: renderer1()});
+								v.setRenderer(renderer1());
+							}
+						
+							if (v.isPlaying()) {
+								v.stop1();
+								v.stop2();
+								
+							}else {
+								if(id == "play1"){
+									v.start1();
+								}
+								else{
+									v.start2();
+								}
+							}
+							
+						lastElparentId = id;
+					};
+				})();
+			}
+			
+			
+		};
+
+
+
+
+</script>
+</html> 
